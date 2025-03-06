@@ -1,9 +1,8 @@
-// frontend/src/ReservationList.js
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-function ReservationList() {
+function ReservationList({ backendUrl }) {
   const [reservations, setReservations] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -11,24 +10,31 @@ function ReservationList() {
   const navigate = useNavigate();
 
   // Fetch reservations from the backend
-  const fetchReservations = () => {
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => setReservations(response.data))
-      .catch(error => console.error('Error fetching reservations:', error));
+  const fetchReservations = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/reservations`);
+      console.log('Fetched reservations:', response.data); // Log fetched data
+      setReservations(response.data);
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+    }
   };
 
   useEffect(() => {
     fetchReservations();
-  }, []);
+  }, [backendUrl]); // Re-fetch when backendUrl changes
+
+  // Function to refresh the list (e.g., after adding or deleting a reservation)
+  const refreshList = () => {
+    fetchReservations();
+  };
 
   // Sort reservations by checkIn datetime (assuming ISO format)
   const sortedReservations = reservations.slice().sort((a, b) => {
     return new Date(a.checkIn) - new Date(b.checkIn);
   });
 
-  // Filtering function: 
-  // - Filter by customer name if searchText is provided (case‑insensitive).
-  // - If filterStartDate and/or filterEndDate are provided, only include reservations that overlap the date range.
+  // Filtering function
   const filteredReservations = sortedReservations.filter(res => {
     const nameMatch = res.customerName.toLowerCase().includes(searchText.toLowerCase());
 
@@ -47,9 +53,9 @@ function ReservationList() {
     if (!filterEnd && filterStart) {
       filterEnd = new Date(filterStart);
     }
-    
+
     if (filterEnd) {
-      filterEnd.setDate(filterEnd.getDate() + 1); // make end date inclusive
+      filterEnd.setDate(filterEnd.getDate() + 1); // Make end date inclusive
     }
 
     const dateMatch = resCheckIn < filterEnd && resCheckOut > filterStart;
@@ -60,16 +66,16 @@ function ReservationList() {
   // Handler for deleting a reservation
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this reservation?")) {
-      axios.delete(`http://localhost:5001/api/reservations/${id}`)
+      axios.delete(`${backendUrl}/api/reservations/${id}`)
         .then(response => {
           alert(response.data.message);
-          fetchReservations();
+          refreshList(); // Refresh the list after deletion
         })
         .catch(error => console.error('Error deleting reservation:', error));
     }
   };
 
-  // Handler for editing a reservation: navigate to the edit-reservation page
+  // Handler for editing a reservation
   const handleEdit = (id) => {
     navigate(`/edit-reservation/${id}`);
   };
@@ -77,10 +83,10 @@ function ReservationList() {
   return (
     <div style={{ maxWidth: '1000px', margin: 'auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       <h2 style={{ textAlign: 'center', color: '#333' }}>Reservation List</h2>
-      
+
       {/* Filter Controls */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '20px', justifyContent: 'center' }}>
-        <input 
+        <input
           type="text"
           placeholder="Search by customer name..."
           value={searchText}
@@ -89,7 +95,7 @@ function ReservationList() {
         />
         <div>
           <label style={{ marginRight: '8px' }}>From:</label>
-          <input 
+          <input
             type="date"
             value={filterStartDate}
             onChange={e => setFilterStartDate(e.target.value)}
@@ -98,21 +104,21 @@ function ReservationList() {
         </div>
         <div>
           <label style={{ marginRight: '8px' }}>To:</label>
-          <input 
+          <input
             type="date"
             value={filterEndDate}
             onChange={e => setFilterEndDate(e.target.value)}
             style={{ padding: '8px' }}
           />
         </div>
-        <button 
+        <button
           onClick={() => { setSearchText(''); setFilterStartDate(''); setFilterEndDate(''); }}
           style={{ padding: '8px 12px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
           Clear Filters
         </button>
       </div>
-      
+
       {filteredReservations.length === 0 ? (
         <p style={{ textAlign: 'center' }}>No reservations found.</p>
       ) : (
@@ -137,7 +143,7 @@ function ReservationList() {
                 <strong>Check-Out:</strong> {reservation.checkOut}
               </p>
               <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between' }}>
-                <button 
+                <button
                   onClick={() => handleEdit(reservation.id)}
                   style={{
                     padding: '8px 12px',
@@ -150,7 +156,7 @@ function ReservationList() {
                 >
                   Edit
                 </button>
-                <button 
+                <button
                   onClick={() => handleDelete(reservation.id)}
                   style={{
                     padding: '8px 12px',

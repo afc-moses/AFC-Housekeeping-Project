@@ -1,9 +1,8 @@
-// frontend/src/EditReservation.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
-function EditReservation() {
+function EditReservation({ backendUrl }) {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -18,7 +17,7 @@ function EditReservation() {
     checkOutTime: ''
   });
 
-  // List of available hotel rooms (as in your ReservationForm)
+  // List of available hotel rooms
   const hotelRooms = [
     '105', '107', '109',
     '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120',
@@ -27,13 +26,11 @@ function EditReservation() {
 
   // Fetch the current reservation from the backend
   useEffect(() => {
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => {
-        // Convert id to number for comparison
+    const fetchReservation = async () => {
+      try {
+        const response = await axios.get(`${backendUrl}/api/reservations`);
         const found = response.data.find(r => r.id === Number(id));
         if (found) {
-          // Instead of using new Date() (which may shift the time),
-          // we assume found.checkIn and found.checkOut are ISO strings and slice them directly.
           const checkInDate = found.checkIn ? found.checkIn.slice(0, 10) : '';
           const checkInTime = found.checkIn ? found.checkIn.slice(11, 16) : '';
           const checkOutDate = found.checkOut ? found.checkOut.slice(0, 10) : '';
@@ -52,9 +49,14 @@ function EditReservation() {
           alert('Reservation not found!');
           navigate('/reservation-list');
         }
-      })
-      .catch(error => console.error('Error fetching reservation:', error));
-  }, [id, navigate]);
+      } catch (error) {
+        console.error('Error fetching reservation:', error);
+        alert('Error fetching reservation. See console for details.');
+      }
+    };
+
+    fetchReservation();
+  }, [id, navigate, backendUrl]);
 
   // Handle text inputs
   const handleChange = (e) => {
@@ -73,9 +75,8 @@ function EditReservation() {
   };
 
   // Handle form submission for updating reservation
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Combine date and time fields to form ISO-like datetime strings
     const checkIn = `${reservation.checkInDate}T${reservation.checkInTime}`;
     const checkOut = `${reservation.checkOutDate}T${reservation.checkOutTime}`;
     const dataToSend = {
@@ -86,12 +87,16 @@ function EditReservation() {
       checkIn,
       checkOut
     };
-    axios.put(`http://localhost:5001/api/reservations/${id}`, dataToSend)
-      .then(response => {
-        alert(response.data.message);
-        navigate('/reservation-list');
-      })
-      .catch(error => console.error('Error updating reservation:', error));
+
+    try {
+      const response = await axios.put(`${backendUrl}/api/reservations/${id}`, dataToSend);
+      alert(response.data.message);
+      navigate('/reservation-list');
+      window.location.reload(); // Temporary refresh to update the list
+    } catch (error) {
+      console.error('Error updating reservation:', error);
+      alert('Error updating reservation. See console for details.');
+    }
   };
 
   return (

@@ -1,8 +1,7 @@
-// frontend/src/SummaryDashboard.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function SummaryDashboard() {
+function SummaryDashboard({ backendUrl }) {
   const [reservations, setReservations] = useState([]);
   const [periodType, setPeriodType] = useState('month'); // Default period type
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10)); // Default to today
@@ -20,10 +19,17 @@ function SummaryDashboard() {
 
   // Fetch reservations from the backend
   useEffect(() => {
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => setReservations(response.data))
-      .catch(error => console.error('Error fetching reservations:', error));
-  }, []);
+    const fetchReservations = async () => {
+      try {
+        const response = await axios.get(`${backendUrl}/api/reservations`);
+        console.log('Fetched reservations:', response.data); // Log for debugging
+        setReservations(response.data);
+      } catch (error) {
+        console.error('Error fetching reservations:', error);
+      }
+    };
+    fetchReservations();
+  }, [backendUrl]);
 
   // Calculate end date based on period type and start date
   const calculateEndDate = (start, period) => {

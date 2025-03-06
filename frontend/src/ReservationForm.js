@@ -1,8 +1,8 @@
-// frontend/src/ReservationForm.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-function ReservationForm() {
+function ReservationForm({ backendUrl }) {
   const [reservation, setReservation] = useState({
     customerName: '',
     email: '',
@@ -14,17 +14,16 @@ function ReservationForm() {
     checkOutTime: '11:00' // Default check-out time: 11:00 AM
   });
   const [lastRoomIndex, setLastRoomIndex] = useState(null);
-
-  // List of available hotel rooms
-  const hotelRooms = [
-    '105', '107', '109',
-    '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120',
-    '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220'
-  ];
+  const navigate = useNavigate();
 
   // Update state for text inputs
   const handleChange = (e) => {
-    setReservation({ ...reservation, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'rooms') {
+      setReservation({ ...reservation, [name]: value.split(',').map(room => room.trim()) });
+    } else {
+      setReservation({ ...reservation, [name]: value });
+    }
   };
 
   // Toggle selection of a room with shift-click support
@@ -51,22 +50,21 @@ function ReservationForm() {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Submit clicked");
     const checkIn = `${reservation.checkInDate}T${reservation.checkInTime}`;
     const checkOut = `${reservation.checkOutDate}T${reservation.checkOutTime}`;
 
-    // Using a relative endpoint so it works both locally and on Heroku
-    axios.post('/api/reservations', {
-      customerName: reservation.customerName,
-      email: reservation.email,
-      phone: reservation.phone,
-      rooms: reservation.rooms,
-      checkIn,
-      checkOut
-    })
-    .then(response => {
+    try {
+      const response = await axios.post(`${backendUrl}/api/reservations`, {
+        customerName: reservation.customerName,
+        email: reservation.email,
+        phone: reservation.phone,
+        rooms: reservation.rooms,
+        checkIn,
+        checkOut
+      });
       console.log("Response:", response.data);
       alert("Reservation added successfully!");
       // Reset the form
@@ -81,12 +79,21 @@ function ReservationForm() {
         checkOutTime: '11:00'
       });
       setLastRoomIndex(null);
-    })
-    .catch(error => {
+      // Navigate to reservation list and trigger refresh (assuming App.js handles this)
+      navigate('/reservation-list');
+      window.location.reload(); // Temporary refresh until we integrate a better solution
+    } catch (error) {
       console.error("Error adding reservation:", error);
       alert("Error adding reservation. See console for details.");
-    });
+    }
   };
+
+  // List of available hotel rooms
+  const hotelRooms = [
+    '105', '107', '109',
+    '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120',
+    '205', '206', '207', '208', '209', '210', '211', '212', '213', '214', '215', '216', '217', '218', '219', '220'
+  ];
 
   return (
     <div style={{ maxWidth: '600px', margin: 'auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', boxShadow: '2px 2px 12px rgba(0,0,0,0.1)' }}>

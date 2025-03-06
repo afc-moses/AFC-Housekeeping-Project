@@ -2,119 +2,163 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const mongoose = require('mongoose');
 
 const app = express();
-const PORT = process.env.PORT || 5001; // Render sets PORT dynamically
+const PORT = process.env.PORT || 5001;
+
+// Connect to MongoDB
+mongoose.connect(process.env.DATABASE_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Define Reservation Schema
+const reservationSchema = new mongoose.Schema({
+  customerName: String,
+  email: String,
+  phone: String,
+  rooms: [String],
+  checkIn: String,
+  checkOut: String,
+  id: Number
+});
+const Reservation = mongoose.model('Reservation', reservationSchema);
+
+// Define CleaningTask Schema
+const cleaningTaskSchema = new mongoose.Schema({
+  taskId: Number,
+  room: String,
+  cleaningDate: String,
+  reservationId: Number,
+  completed: Boolean
+});
+const CleaningTask = mongoose.model('CleaningTask', cleaningTaskSchema);
 
 // Middlewares
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- Example API Endpoints ---
-
-// Default route to check if the backend is running
+// Default route
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from backend!' });
 });
 
-// In-memory storage for reservations and cleaning schedule
-let reservations = [];
-let cleaningSchedule = [];
-let nextTaskId = 1;
-
-// Endpoint to get all reservations
-app.get('/api/reservations', (req, res) => {
-  res.json(reservations);
+// Get all reservations
+app.get('/api/reservations', async (req, res) => {
+  try {
+    const reservations = await Reservation.find();
+    console.log('Fetched reservations:', reservations);
+    res.json(reservations);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching reservations', error });
+  }
 });
 
-// Endpoint to add a reservation and update the cleaning schedule
-app.post('/api/reservations', (req, res) => {
-  const reservation = req.body;
-  reservation.id = Date.now();
-  reservations.push(reservation);
+// Add a reservation
+app.post('/api/reservations', async (req, res) => {
+  try {
+    const reservation = req.body;
+    reservation.id = Date.now();
+    const newReservation = new Reservation(reservation);
+    await newReservation.save();
+    console.log('New reservation added:', newReservation);
 
-  if (reservation.rooms && reservation.checkOut) {
-    reservation.rooms.forEach(room => {
-      cleaningSchedule.push({
-        taskId: nextTaskId++,
+    if (reservation.rooms && reservation.checkOut) {
+      const tasks = reservation.rooms.map(room => ({
+        taskId: Date.now() + Math.floor(Math.random() * 1000), // Unique taskId
         room,
         cleaningDate: reservation.checkOut,
         reservationId: reservation.id,
         completed: false
-      });
-    });
-  }
+      }));
+      await CleaningTask.insertMany(tasks);
+    }
 
-  res.json({ message: 'Reservation added successfully!', reservation });
+    res.json({ message: 'Reservation added successfully!', reservation: newReservation });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding reservation', error });
+  }
 });
 
-// Endpoint to update (edit) a reservation by ID
-app.put('/api/reservations/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const index = reservations.findIndex(r => r.id === id);
-  if (index !== -1) {
+// Update a reservation
+app.put('/api/reservations/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
     const updatedReservation = req.body;
     updatedReservation.id = id;
-    reservations[index] = updatedReservation;
-
-    cleaningSchedule = cleaningSchedule.filter(task => task.reservationId !== id);
-    if (updatedReservation.rooms && updatedReservation.checkOut) {
-      updatedReservation.rooms.forEach(room => {
-        cleaningSchedule.push({
-          taskId: nextTaskId++,
+    const reservation = await Reservation.findOneAndUpdate({ id }, updatedReservation, { new: true });
+    if (reservation) {
+      await CleaningTask.deleteMany({ reservationId: id });
+      if (updatedReservation.rooms && updatedReservation.checkOut) {
+        const tasks = updatedReservation.rooms.map(room => ({
+          taskId: Date.now() + Math.floor(Math.random() * 1000),
           room,
           cleaningDate: updatedReservation.checkOut,
           reservationId: id,
           completed: false
-        });
-      });
+        }));
+        await CleaningTask.insertMany(tasks);
+      }
+      console.log('Reservation updated:', reservation);
+      res.json({ message: 'Reservation updated successfully!', reservation });
+    } else {
+      res.status(404).json({ message: 'Reservation not found' });
     }
-    res.json({ message: 'Reservation updated successfully!', reservation: updatedReservation });
-  } else {
-    res.status(404).json({ message: 'Reservation not found' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating reservation', error });
   }
 });
 
-// Endpoint to delete a reservation by ID
-app.delete('/api/reservations/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const index = reservations.findIndex(r => r.id === id);
-  if (index !== -1) {
-    reservations.splice(index, 1);
-    cleaningSchedule = cleaningSchedule.filter(task => task.reservationId !== id);
-    res.json({ message: 'Reservation deleted successfully!' });
-  } else {
-    res.status(404).json({ message: 'Reservation not found' });
+// Delete a reservation
+app.delete('/api/reservations/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const reservation = await Reservation.findOneAndDelete({ id });
+    if (reservation) {
+      await CleaningTask.deleteMany({ reservationId: id });
+      console.log('Reservation deleted, ID:', id);
+      res.json({ message: 'Reservation deleted successfully!' });
+    } else {
+      res.status(404).json({ message: 'Reservation not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting reservation', error });
   }
 });
 
-// Endpoint to update a cleaning task's status (mark as completed)
-app.put('/api/cleaning-schedule/task/:taskId', (req, res) => {
-  const taskId = parseInt(req.params.taskId, 10);
-  const index = cleaningSchedule.findIndex(task => task.taskId === taskId);
-  if (index !== -1) {
-    cleaningSchedule[index].completed = req.body.completed;
-    res.json({ message: 'Task updated successfully!', task: cleaningSchedule[index] });
-  } else {
-    res.status(404).json({ message: 'Task not found' });
+// Update cleaning task status
+app.put('/api/cleaning-schedule/task/:taskId', async (req, res) => {
+  try {
+    const taskId = parseInt(req.params.taskId, 10);
+    const task = await CleaningTask.findOneAndUpdate({ taskId }, { completed: req.body.completed }, { new: true });
+    if (task) {
+      res.json({ message: 'Task updated successfully!', task });
+    } else {
+      res.status(404).json({ message: 'Task not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating task', error });
   }
 });
 
-// Endpoint to get cleaning schedule data
-app.get('/api/cleaning-schedule', (req, res) => {
-  res.json(cleaningSchedule);
+// Get cleaning schedule
+app.get('/api/cleaning-schedule', async (req, res) => {
+  try {
+    const schedule = await CleaningTask.find();
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching cleaning schedule', error });
+  }
 });
 
-// Serve static files from the React app build
+// Serve static files and catch-all for SPA
 app.use(express.static(path.join(__dirname, '../frontend/build')));
-
-// Catch-all handler: For any request that doesn't match an API route,
-// send back the React app's index.html.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
 });
 
-// Start the server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

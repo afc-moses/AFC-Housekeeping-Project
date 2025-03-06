@@ -1,4 +1,3 @@
-// frontend/src/HousekeepingMinistryChart.js
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -25,7 +24,7 @@ ChartJS.register(
   Legend
 );
 
-function HousekeepingMinistryChart() {
+function HousekeepingMinistryChart({ backendUrl }) {
   const [reservations, setReservations] = useState([]);
   const [viewType, setViewType] = useState('weekly'); // 'weekly' or 'monthly' use Bar, 'yearly' uses Line
   const [startDate, setStartDate] = useState('');
@@ -33,12 +32,19 @@ function HousekeepingMinistryChart() {
 
   // Fetch reservations from the backend
   useEffect(() => {
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => setReservations(response.data))
-      .catch(error => console.error('Error fetching reservations:', error));
-  }, []);
+    const fetchReservations = async () => {
+      try {
+        const response = await axios.get(`${backendUrl}/api/reservations`);
+        console.log('Fetched reservations:', response.data); // Log for debugging
+        setReservations(response.data);
+      } catch (error) {
+        console.error('Error fetching reservations:', error);
+      }
+    };
+    fetchReservations();
+  }, [backendUrl]);
 
-  // Filter reservations by checkOut date within the selected period if dates are provided.
+  // Filter reservations by checkOut date within the selected period if dates are provided
   const filteredReservations = useMemo(() => {
     if (!startDate || !endDate) return reservations;
     const s = new Date(startDate);
@@ -50,7 +56,7 @@ function HousekeepingMinistryChart() {
     });
   }, [reservations, startDate, endDate]);
 
-  // Group reservations by checkOut date (YYYY-MM-DD) and sum the number of rooms per day.
+  // Group reservations by checkOut date (YYYY-MM-DD) and sum the number of rooms per day
   const groupedData = useMemo(() => {
     const groups = {};
     filteredReservations.forEach(res => {
@@ -64,10 +70,10 @@ function HousekeepingMinistryChart() {
     });
     const sortedKeys = Object.keys(groups).sort((a, b) => new Date(a) - new Date(b));
     const dataValues = sortedKeys.map(key => groups[key]);
-    return { labels: sortedKeys, data: dataValues };
+    return { labels: sortedKeys.length > 0 ? sortedKeys : ['No Data'], data: sortedKeys.length > 0 ? dataValues : [0] };
   }, [filteredReservations]);
 
-  // Determine background colors for each day based on the room count.
+  // Determine background colors for each day based on the room count
   const backgroundColors = useMemo(() => {
     return groupedData.data.map(count => {
       if (count < 10) return 'rgba(75, 192, 75, 0.6)';       // green
@@ -80,11 +86,11 @@ function HousekeepingMinistryChart() {
   // Prepare the chart data
   const chartData = useMemo(() => {
     return {
-      labels: groupedData.labels.length > 0 ? groupedData.labels : ['No Data'],
+      labels: groupedData.labels,
       datasets: [
         {
           label: 'Rooms to be Cleaned',
-          data: groupedData.data.length > 0 ? groupedData.data : [0],
+          data: groupedData.data,
           backgroundColor: backgroundColors,
           borderColor: backgroundColors,
           borderWidth: 1,
@@ -116,7 +122,7 @@ function HousekeepingMinistryChart() {
         </div>
       </div>
       {viewType === 'yearly' ? (
-        <Line 
+        <Line
           data={chartData}
           options={{
             plugins: {
@@ -136,7 +142,7 @@ function HousekeepingMinistryChart() {
           }}
         />
       ) : (
-        <Bar 
+        <Bar
           data={chartData}
           options={{
             plugins: {

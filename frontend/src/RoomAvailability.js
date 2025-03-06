@@ -1,8 +1,7 @@
-// frontend/src/RoomAvailabilityPeriod.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function RoomAvailabilityPeriod() {
+function RoomAvailabilityPeriod({ backendUrl }) {
   const [reservations, setReservations] = useState([]);
   const [cleaningSchedule, setCleaningSchedule] = useState([]);
   const [startDate, setStartDate] = useState('');
@@ -17,15 +16,23 @@ function RoomAvailabilityPeriod() {
   ];
 
   // Fetch reservations and cleaning tasks from the backend
-  useEffect(() => {
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => setReservations(response.data))
-      .catch(error => console.error('Error fetching reservations:', error));
+  const fetchData = async () => {
+    try {
+      const reservationsResponse = await axios.get(`${backendUrl}/api/reservations`);
+      console.log('Fetched reservations:', reservationsResponse.data); // Log for debugging
+      setReservations(reservationsResponse.data);
 
-    axios.get('http://localhost:5001/api/cleaning-schedule')
-      .then(response => setCleaningSchedule(response.data))
-      .catch(error => console.error('Error fetching cleaning schedule:', error));
-  }, []);
+      const cleaningResponse = await axios.get(`${backendUrl}/api/cleaning-schedule`);
+      console.log('Fetched cleaning schedule:', cleaningResponse.data); // Log for debugging
+      setCleaningSchedule(cleaningResponse.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [backendUrl]); // Re-fetch when backendUrl changes
 
   // Helper: get all dates in range (inclusive)
   const getDatesInRange = (start, end) => {
@@ -52,14 +59,11 @@ function RoomAvailabilityPeriod() {
 
   // Check if a room is available on a given date
   const isRoomAvailableOn = (room, date) => {
-    // Iterate over each reservation for the room
     for (let res of reservations) {
       if (res.rooms.includes(room)) {
-        // If the date falls within the reservation period [checkIn, checkOut)
         if (date >= res.checkIn && date < res.checkOut) {
           return false;
         }
-        // If the date is exactly the checkOut date, room is available only if cleaned.
         if (date === res.checkOut) {
           const cleaningTask = cleaningSchedule.find(
             task => task.reservationId === res.id && task.cleaningDate === date
@@ -79,24 +83,24 @@ function RoomAvailabilityPeriod() {
       <div style={{ marginBottom: '20px' }}>
         <label>
           Start Date:
-          <input 
-            type="date" 
-            value={startDate} 
-            onChange={e => setStartDate(e.target.value)} 
+          <input
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
             style={{ marginLeft: '8px' }}
           />
         </label>
         <label style={{ marginLeft: '20px' }}>
           End Date:
-          <input 
-            type="date" 
-            value={endDate} 
-            onChange={e => setEndDate(e.target.value)} 
+          <input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
             style={{ marginLeft: '8px' }}
           />
         </label>
-        <button 
-          onClick={handleShowAvailability} 
+        <button
+          onClick={handleShowAvailability}
           style={{ marginLeft: '20px', padding: '8px 16px' }}
         >
           Show Availability
@@ -119,9 +123,9 @@ function RoomAvailabilityPeriod() {
                 {datesInRange.map(date => {
                   const available = isRoomAvailableOn(room, date);
                   return (
-                    <td 
-                      key={date} 
-                      style={{ 
+                    <td
+                      key={date}
+                      style={{
                         backgroundColor: available ? '#d4edda' : '#f8d7da',
                         textAlign: 'center'
                       }}

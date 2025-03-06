@@ -1,22 +1,29 @@
-// frontend/src/UpcomingCleaningTasks.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-function UpcomingCleaningTasks() {
+function UpcomingCleaningTasks({ backendUrl }) {
   const [tasks, setTasks] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [expandedReservation, setExpandedReservation] = useState(null);
 
   // Fetch cleaning tasks and reservations from the backend
-  useEffect(() => {
-    axios.get('http://localhost:5001/api/cleaning-schedule')
-      .then(response => setTasks(response.data))
-      .catch(error => console.error('Error fetching cleaning tasks:', error));
+  const fetchData = async () => {
+    try {
+      const tasksResponse = await axios.get(`${backendUrl}/api/cleaning-schedule`);
+      console.log('Fetched cleaning tasks:', tasksResponse.data);
+      setTasks(tasksResponse.data);
 
-    axios.get('http://localhost:5001/api/reservations')
-      .then(response => setReservations(response.data))
-      .catch(error => console.error('Error fetching reservations:', error));
-  }, []);
+      const reservationsResponse = await axios.get(`${backendUrl}/api/reservations`);
+      console.log('Fetched reservations:', reservationsResponse.data);
+      setReservations(reservationsResponse.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [backendUrl]);
 
   // Calculate the date range: from today to 7 days from today
   const today = new Date();
@@ -52,16 +59,15 @@ function UpcomingCleaningTasks() {
   };
 
   // Mark a specific cleaning task as cleaned
-  const markTaskCleaned = (taskId) => {
-    axios.put(`http://localhost:5001/api/cleaning-schedule/task/${taskId}`, { completed: true })
-      .then(response => {
-        alert(response.data.message);
-        // Refresh tasks list after update
-        axios.get('http://localhost:5001/api/cleaning-schedule')
-          .then(resp => setTasks(resp.data))
-          .catch(err => console.error('Error refreshing tasks:', err));
-      })
-      .catch(error => console.error('Error updating task:', error));
+  const markTaskCleaned = async (taskId) => {
+    try {
+      const response = await axios.put(`${backendUrl}/api/cleaning-schedule/task/${taskId}`, { completed: true });
+      alert(response.data.message);
+      await fetchData(); // Refresh tasks and reservations after updating
+    } catch (error) {
+      console.error('Error updating task:', error);
+      alert('Error updating task. See console for details.');
+    }
   };
 
   // Sort reservation groups by the check-out date of the first task in each group
@@ -103,7 +109,7 @@ function UpcomingCleaningTasks() {
                       <li key={task.taskId} style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '15px' }}>Room {task.room} - {task.completed ? 'Cleaned' : 'Pending'}</span>
                         {!task.completed && (
-                          <button 
+                          <button
                             onClick={() => markTaskCleaned(task.taskId)}
                             style={{ padding: '6px 10px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}
                           >
