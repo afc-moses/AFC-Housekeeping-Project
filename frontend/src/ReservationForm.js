@@ -9,11 +9,10 @@ function ReservationForm() {
     phone: '',
     rooms: [],
     checkInDate: '',
-    checkInTime: '16:00',   // Default check-in time: 4:00 PM
+    checkInTime: '16:00', // Default check-in time: 4:00 PM
     checkOutDate: '',
-    checkOutTime: '11:00'   // Default check-out time: 11:00 AM
+    checkOutTime: '11:00' // Default check-out time: 11:00 AM
   });
-  // Track the index of the last clicked room for shift selection
   const [lastRoomIndex, setLastRoomIndex] = useState(null);
 
   // List of available hotel rooms
@@ -28,14 +27,12 @@ function ReservationForm() {
     setReservation({ ...reservation, [e.target.name]: e.target.value });
   };
 
-  // Handle room toggle with shift-click support
+  // Toggle selection of a room with shift-click support
   const handleRoomToggle = (room, index, event) => {
     let newRooms = [...reservation.rooms];
-    // If shift key is pressed and we have a last selected index
     if (event.shiftKey && lastRoomIndex !== null) {
       const start = Math.min(lastRoomIndex, index);
       const end = Math.max(lastRoomIndex, index);
-      // Select all rooms in the range (if not already selected)
       for (let i = start; i <= end; i++) {
         const currentRoom = hotelRooms[i];
         if (!newRooms.includes(currentRoom)) {
@@ -43,61 +40,56 @@ function ReservationForm() {
         }
       }
     } else {
-      // Normal toggle: remove if selected, otherwise add
       if (newRooms.includes(room)) {
         newRooms = newRooms.filter(r => r !== room);
       } else {
         newRooms.push(room);
       }
-      // Update last clicked index
       setLastRoomIndex(index);
     }
     setReservation({ ...reservation, rooms: newRooms });
   };
 
-  // Submit the form to add a reservation
+  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Combine date and time fields into ISO-like strings (e.g., "2025-03-01T14:30")
+    console.log("Submit clicked");
     const checkIn = `${reservation.checkInDate}T${reservation.checkInTime}`;
     const checkOut = `${reservation.checkOutDate}T${reservation.checkOutTime}`;
-    const dataToSend = {
+
+    // Using a relative endpoint so it works both locally and on Heroku
+    axios.post('/api/reservations', {
       customerName: reservation.customerName,
       email: reservation.email,
       phone: reservation.phone,
       rooms: reservation.rooms,
       checkIn,
       checkOut
-    };
-    axios.post('http://localhost:5001/api/reservations', dataToSend)
-      .then(response => {
-        alert('Reservation added successfully!');
-        setReservation({
-          customerName: '',
-          email: '',
-          phone: '',
-          rooms: [],
-          checkInDate: '',
-          checkInTime: '16:00',   // Reset to default check-in time
-          checkOutDate: '',
-          checkOutTime: '11:00'   // Reset to default check-out time
-        });
-        setLastRoomIndex(null);
-      })
-      .catch(error => {
-        console.error('Error adding reservation:', error);
+    })
+    .then(response => {
+      console.log("Response:", response.data);
+      alert("Reservation added successfully!");
+      // Reset the form
+      setReservation({
+        customerName: '',
+        email: '',
+        phone: '',
+        rooms: [],
+        checkInDate: '',
+        checkInTime: '16:00',
+        checkOutDate: '',
+        checkOutTime: '11:00'
       });
+      setLastRoomIndex(null);
+    })
+    .catch(error => {
+      console.error("Error adding reservation:", error);
+      alert("Error adding reservation. See console for details.");
+    });
   };
 
   return (
-    <div style={{
-      maxWidth: '600px',
-      margin: 'auto',
-      padding: '20px',
-      border: '1px solid #ccc',
-      borderRadius: '8px',
-      boxShadow: '2px 2px 12px rgba(0,0,0,0.1)'
-    }}>
+    <div style={{ maxWidth: '600px', margin: 'auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', boxShadow: '2px 2px 12px rgba(0,0,0,0.1)' }}>
       <h2>Reservation Management</h2>
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '15px' }}>
@@ -135,12 +127,7 @@ function ReservationForm() {
         </div>
         <div style={{ marginBottom: '15px' }}>
           <label>Select Room(s):</label><br />
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: '8px',
-            marginTop: '8px'
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', marginTop: '8px' }}>
             {hotelRooms.map((room, index) => (
               <button
                 key={room}
@@ -208,16 +195,11 @@ function ReservationForm() {
             />
           </div>
         </div>
-        <button type="submit" style={{
-          padding: '10px 20px',
-          backgroundColor: '#007BFF',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer'
-        }}>
-          Add Reservation
-        </button>
+        <div style={{ textAlign: 'center' }}>
+          <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007BFF', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Add Reservation
+          </button>
+        </div>
       </form>
     </div>
   );
