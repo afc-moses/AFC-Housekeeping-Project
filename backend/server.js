@@ -1,11 +1,10 @@
-// backend/server.js
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5001; // Render sets PORT dynamically
 
 // Middlewares
 app.use(cors());
@@ -31,11 +30,9 @@ app.get('/api/reservations', (req, res) => {
 // Endpoint to add a reservation and update the cleaning schedule
 app.post('/api/reservations', (req, res) => {
   const reservation = req.body;
-  // Assign a unique ID to the reservation
   reservation.id = Date.now();
   reservations.push(reservation);
 
-  // For each room selected, add a cleaning schedule entry on the check-out date.
   if (reservation.rooms && reservation.checkOut) {
     reservation.rooms.forEach(room => {
       cleaningSchedule.push({
@@ -57,10 +54,9 @@ app.put('/api/reservations/:id', (req, res) => {
   const index = reservations.findIndex(r => r.id === id);
   if (index !== -1) {
     const updatedReservation = req.body;
-    updatedReservation.id = id; // Keep the same ID
+    updatedReservation.id = id;
     reservations[index] = updatedReservation;
 
-    // Update cleaning schedule: remove old tasks and add new ones
     cleaningSchedule = cleaningSchedule.filter(task => task.reservationId !== id);
     if (updatedReservation.rooms && updatedReservation.checkOut) {
       updatedReservation.rooms.forEach(room => {
@@ -109,8 +105,6 @@ app.get('/api/cleaning-schedule', (req, res) => {
   res.json(cleaningSchedule);
 });
 
-// --- End of API Endpoints ---
-
 // Serve static files from the React app build
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
@@ -120,7 +114,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
 });
 
-// Start the server after all routes are set up
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
