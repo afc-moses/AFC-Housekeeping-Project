@@ -1,9 +1,9 @@
 {
-    "name": "afc-housekeeping-project",
-    "version": "1.0.0",
-    "scripts": {
-      "start": "node backend/server.js",
-      "heroku-postbuild": "cd frontend && npm install && npm run build"
-    },
-    "dependencies": {}
-  }
+  "name": "afc-housekeeping-project",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node backend/server.js",
+    "heroku-postbuild": "cd frontend && npm install && npm run build"
+  },
+  "dependencies": {}
+}
